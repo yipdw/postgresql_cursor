@@ -1,3 +1,5 @@
+require 'atomic'
+
 ################################################################################
 # PostgreSQLCursor: library class provides postgresql cursor for large result
 # set processing. Requires ActiveRecord, but can be adapted to other DBI/ORM libraries.
@@ -20,7 +22,7 @@ module PostgreSQLCursor
   class Cursor
     include Enumerable
     attr_reader :sql, :options, :connection, :count, :result
-    @@cursor_seq = 0
+    @@cursor_seq = Atomic.new(0)
 
     # Public: Start a new PostgreSQL cursor query
     # sql     - The SQL statement with interpolated values
@@ -159,7 +161,9 @@ module PostgreSQLCursor
     # Public: Opens (actually, "declares") the cursor. Call this before fetching
     def open
       set_cursor_tuple_fraction
-      @cursor = @@cursor_seq += 1
+      @@cursor_seq.update { |v| v + 1 }
+
+      @cursor = @@cursor_seq.value
       @result = @connection.execute("declare cursor_#{@cursor} cursor for #{@sql}")
       @block = []
     end
